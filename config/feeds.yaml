@@ -1,0 +1,136 @@
+# AI & Agent RSS Feeds Configuration
+# 分类: research | product | agent | industry | zh
+
+feeds:
+  # ── 研究 / 学术 ──────────────────────────────────────────
+  - name: "Anthropic Blog"
+    url: "https://www.anthropic.com/rss.xml"
+    category: research
+    lang: en
+
+  - name: "OpenAI Blog"
+    url: "https://openai.com/blog/rss.xml"
+    category: research
+    lang: en
+
+  - name: "Google DeepMind Blog"
+    url: "https://deepmind.google/blog/rss.xml"
+    category: research
+    lang: en
+
+  - name: "Meta AI Blog"
+    url: "https://ai.meta.com/blog/feed/"
+    category: research
+    lang: en
+
+  - name: "Microsoft Research AI"
+    url: "https://www.microsoft.com/en-us/research/feed/?research-area=artificial-intelligence"
+    category: research
+    lang: en
+
+  - name: "arXiv cs.AI (daily)"
+    url: "https://rss.arxiv.org/rss/cs.AI"
+    category: research
+    lang: en
+    max_items: 10
+
+  - name: "arXiv cs.LG (daily)"
+    url: "https://rss.arxiv.org/rss/cs.LG"
+    category: research
+    lang: en
+    max_items: 10
+
+  # ── 智能体 / Agent 专项 ──────────────────────────────────
+  - name: "LangChain Blog"
+    url: "https://blog.langchain.dev/rss/"
+    category: agent
+    lang: en
+
+  - name: "LlamaIndex Blog"
+    url: "https://www.llamaindex.ai/blog/rss.xml"
+    category: agent
+    lang: en
+
+  - name: "AutoGen / Microsoft AutoGen"
+    url: "https://devblogs.microsoft.com/autogen/feed/"
+    category: agent
+    lang: en
+
+  - name: "Hugging Face Blog"
+    url: "https://huggingface.co/blog/feed.xml"
+    category: agent
+    lang: en
+
+  # ── 产品 / 行业动态 ──────────────────────────────────────
+  - name: "The Verge AI"
+    url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+    category: industry
+    lang: en
+
+  - name: "MIT Technology Review AI"
+    url: "https://www.technologyreview.com/topic/artificial-intelligence/feed/"
+    category: industry
+    lang: en
+
+  - name: "VentureBeat AI"
+    url: "https://venturebeat.com/category/ai/feed/"
+    category: industry
+    lang: en
+
+  - name: "TechCrunch AI"
+    url: "https://techcrunch.com/category/artificial-intelligence/feed/"
+    category: industry
+    lang: en
+
+  - name: "Towards Data Science"
+    url: "https://towardsdatascience.com/feed"
+    category: product
+    lang: en
+
+  # ── 个人博客 / Newsletter ────────────────────────────────
+  - name: "Simon Willison's Weblog"
+    url: "https://simonwillison.net/atom/everything/"
+    category: product
+    lang: en
+
+  - name: "Ahead of AI (Sebastian Raschka)"
+    url: "https://magazine.sebastianraschka.com/feed"
+    category: research
+    lang: en
+
+  - name: "Nathan Lambert (Interconnects)"
+    url: "https://www.interconnects.ai/feed"
+    category: research
+    lang: en
+
+  - name: "Lilian Weng Blog (OpenAI)"
+    url: "https://lilianweng.github.io/index.xml"
+    category: research
+    lang: en
+
+  # ── 中文源 ───────────────────────────────────────────────
+  - name: "量子位"
+    url: "https://www.qbitai.com/feed"
+    category: industry
+    lang: zh
+
+  - name: "机器之心"
+    url: "https://www.jiqizhixin.com/rss"
+    category: industry
+    lang: zh
+
+  - name: "PaperWeekly"
+    url: "https://www.paperweekly.site/feed"
+    category: research
+    lang: zh
+
+  - name: "AI 科技评论"
+    url: "https://aitechtalk.baijia.baidu.com/rss"
+    category: industry
+    lang: zh
+
+# 推送配置
+digest:
+  max_items_per_feed: 5      # 每个源最多取几条
+  lookback_hours: 24          # 只取过去N小时的内容
+  summary_lang: "zh"          # AI摘要语言: zh | en
