@@ -220,6 +220,70 @@ def send_webhook(payload: dict):
     requests.post(url, json=payload, timeout=10)
     print("[OK] Webhook sent")
 
+# ─── 生成 RSS feed.xml ────────────────────────────────────
+def build_feed(items: list[dict], repo_url: str) -> str:
+    """生成标准 Atom feed，供 RSS 阅读器订阅"""
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def esc(s: str) -> str:
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+    entries = ""
+    for item in items[:50]:  # feed 最多保留 50 条
+        entries += f"""
+  <entry>
+    <title>{esc(item['title'])}</title>
+    <link href="{esc(item['link'])}"/>
+    <id>{esc(item['link'])}</id>
+    <updated>{item['published'].replace(' UTC', 'Z').replace(' ', 'T')}</updated>
+    <author><name>{esc(item['source'])}</name></author>
+    <category term="{esc(item['category'])}"/>
+    <summary>{esc(item['summary'][:300])}</summary>
+  </entry>"""
+
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>🤖 AI &amp; Agent 日报</title>
+  <subtitle>每日自动聚合 AI 与智能体领域最新动态</subtitle>
+  <link href="{repo_url}/feed.xml" rel="self"/>
+  <link href="{repo_url}"/>
+  <id>{repo_url}/feed.xml</id>
+  <updated>{now_iso}</updated>
+  <generator>GitHub Actions RSS Digest</generator>
+{entries}
+</feed>"""
+
+def build_index_html(items: list[dict], date_str: str, repo_url: str) -> str:
+    """生成 GitHub Pages 首页，内嵌 RSS 自动发现"""
+    import re
+    rows = ""
+    for item in items:
+        cat_color = {"research": "#667eea", "agent": "#f093fb", "industry": "#4facfe", "product": "#43e97b"}.get(item["category"], "#aaa")
+        rows += (
+            f'<tr><td style="padding:8px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top">'
+            f'<span style="background:{cat_color};color:white;border-radius:3px;padding:1px 6px;font-size:11px">{item["category"]}</span></td>'
+            f'<td style="padding:8px;border-bottom:1px solid #f0f0f0">'
+            f'<a href="{item["link"]}" style="color:#1a73e8;text-decoration:none">{item["title"]}</a>'
+            f'<div style="color:#999;font-size:12px;margin-top:2px">{item["source"]} · {item["published"]}</div></td></tr>'
+        )
+    return f"""<!DOCTYPE html>
+<html lang="zh"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🤖 AI & Agent 日报</title>
+<link rel="alternate" type="application/atom+xml" title="AI &amp; Agent 日报 RSS" href="{repo_url}/feed.xml">
+<style>body{{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#333}}
+a.rss-btn{{display:inline-block;background:#f5a623;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:14px;margin-top:8px}}</style>
+</head><body>
+<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:24px;border-radius:12px;color:white;margin-bottom:24px">
+  <h1 style="margin:0;font-size:22px">🤖 AI & Agent 日报</h1>
+  <p style="margin:6px 0 12px;opacity:0.85">最后更新：{date_str} · 共 {len(items)} 条</p>
+  <a class="rss-btn" href="{repo_url}/feed.xml">🔔 订阅 RSS Feed</a>
+</div>
+<table width="100%" cellpadding="0" cellspacing="0">{rows}</table>
+<p style="color:#999;font-size:12px;text-align:center;margin-top:32px">由 GitHub Actions 每日自动生成</p>
+</body></html>"""
+
 # ─── 主流程 ───────────────────────────────────────────────
 def main():
     print("=== AI RSS Digest starting ===")
@@ -243,11 +307,19 @@ def main():
     date_str  = datetime.now().strftime("%Y年%m月%d日")
     subject   = f"🤖 AI & Agent 日报 · {date_str} ({len(items)} 条)"
 
-    # 保存 Markdown 报告（同时作为 GitHub Pages / Artifact）
+    # 保存 Markdown 报告
     report_path = BASE_DIR / "reports" / f"{datetime.now().strftime('%Y-%m-%d')}.md"
     report_path.parent.mkdir(exist_ok=True)
     report_path.write_text(f"# {subject}\n\n{digest}\n\n---\n*自动生成于 {datetime.now().isoformat()}*")
     print(f"[OK] Report saved to {report_path}")
+
+    # 生成 GitHub Pages 静态文件（feed.xml + index.html）
+    repo_url  = os.environ.get("PAGES_URL", "https://YOUR_USERNAME.github.io/ai-rss-digest")
+    pages_dir = BASE_DIR / "gh-pages"
+    pages_dir.mkdir(exist_ok=True)
+    (pages_dir / "feed.xml").write_text(build_feed(items, repo_url), encoding="utf-8")
+    (pages_dir / "index.html").write_text(build_index_html(items, date_str, repo_url), encoding="utf-8")
+    print(f"[OK] GitHub Pages files written to {pages_dir}")
 
     # 推送
     PUSH_EMAIL    = os.environ.get("SMTP_USER") and os.environ.get("DIGEST_TO_EMAIL")
