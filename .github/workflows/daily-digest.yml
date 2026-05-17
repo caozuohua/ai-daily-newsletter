@@ -1,0 +1,77 @@
+name: 🤖 AI & Agent Daily Digest
+
+on:
+  schedule:
+    # 每天北京时间 08:00 (UTC 00:00)
+    - cron: "0 0 * * *"
+  workflow_dispatch:           # 允许手动触发
+    inputs:
+      force_all:
+        description: "忽略缓存，强制拉取所有内容"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write              # 需要写入 reports/ 和缓存
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # 1. Checkout（含历史缓存）
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # 2. 恢复缓存（seen_ids）
+      - name: Restore seen-ids cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/seen_ids.json
+          key: seen-ids-${{ runner.os }}-${{ github.run_number }}
+          restore-keys: |
+            seen-ids-${{ runner.os }}-
+
+      # 3. Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # 4. 安装依赖
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 5. 强制清除缓存（可选 input）
+      - name: Clear cache if forced
+        if: ${{ github.event.inputs.force_all == 'true' }}
+        run: rm -f .cache/seen_ids.json
+
+      # 6. 运行 Digest
+      - name: Run digest
+        env:
+          # ── 邮件（可选）──
+          SMTP_HOST:             ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:             ${{ secrets.SMTP_PORT }}
+          SMTP_USER:             ${{ secrets.SMTP_USER }}
+          SMTP_PASS:             ${{ secrets.SMTP_PASS }}
+          DIGEST_TO_EMAIL:       ${{ secrets.DIGEST_TO_EMAIL }}
+          # ── Telegram（可选）──
+          TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:      ${{ secrets.TELEGRAM_CHAT_ID }}
+          # ── Webhook（可选）──
+          WEBHOOK_URL:           ${{ secrets.WEBHOOK_URL }}
+        run: python scripts/digest.py
+
+      # 7. 提交报告到仓库
+      - name: Commit daily report
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/ .cache/
+          git diff --cached --quiet || git commit -m "📰 Daily digest $(date +'%Y-%m-%d')"
+          git push
