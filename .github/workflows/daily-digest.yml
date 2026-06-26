@@ -56,6 +56,9 @@ jobs:
       # 6. 运行 Digest
       - name: Run digest
         env:
+          # ── AI 摘要（Google AI Studio 免费 API）──
+          GOOGLE_API_KEY:        ${{ secrets.GOOGLE_API_KEY }}
+          LLM_MODEL:             gemini-2.0-flash
           # ── 邮件（可选）──
           SMTP_HOST:             ${{ secrets.SMTP_HOST }}
           SMTP_PORT:             ${{ secrets.SMTP_PORT }}
