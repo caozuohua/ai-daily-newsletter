@@ -132,14 +132,24 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
 原始数据：
 {chr(10).join(lines)}"""
 
-    # 尝试通过 OpenAI 兼容 API 调用（VertexAI 代理 / Google AI Studio）
+    # 尝试通过 LLM 生成 AI 摘要（多后端支持）
     try:
         import os
         from openai import OpenAI
 
-        base_url = os.environ.get("VERTEXAI_PROXY_URL", "http://127.0.0.1:18999/v1")
-        api_key = os.environ.get("VERTEXAI_PROXY_KEY", "placeholder")
-        model = os.environ.get("LLM_MODEL", "gemini-3.5-flash")
+        model = os.environ.get("LLM_MODEL", "gemini-2.0-flash")
+        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("VERTEXAI_PROXY_KEY")
+
+        if os.environ.get("VERTEXAI_PROXY_URL"):
+            # 通过 VertexAI 代理（本地/内网）
+            base_url = os.environ["VERTEXAI_PROXY_URL"]
+            model = os.environ.get("LLM_MODEL", "gemini-3.5-flash")
+        elif os.environ.get("GOOGLE_API_KEY"):
+            # 直连 Google AI Studio（免费，无额度限制）
+            base_url = "https://generativelanguage.googleapis.com/v1beta"
+        else:
+            print("[WARN] 未配置 GOOGLE_API_KEY 或 VERTEXAI_PROXY，使用规则摘要")
+            return _fallback_summary(items, by_cat, cat_labels, lang)
 
         client = OpenAI(base_url=base_url, api_key=api_key)
         resp = client.chat.completions.create(
