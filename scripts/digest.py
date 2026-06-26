@@ -137,7 +137,6 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
         import os
         from openai import OpenAI
 
-        # 优先用 VertexAI 代理，其次直连 Google AI Studio
         base_url = os.environ.get("VERTEXAI_PROXY_URL", "http://127.0.0.1:18999/v1")
         api_key = os.environ.get("VERTEXAI_PROXY_KEY", "placeholder")
         model = os.environ.get("LLM_MODEL", "gemini-3.5-flash")
@@ -146,10 +145,14 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=500,
+            max_tokens=2048,
             temperature=0.7,
+            extra_body={"google": {"thinking_config": {"include_thoughts": False, "thinking_budget": 0}}},
         )
-        return resp.choices[0].message.content.strip()
+        result_text = resp.choices[0].message.content.strip()
+        if result_text:
+            return result_text
+        print(f"[WARN] LLM 返回空内容 (finish_reason={resp.choices[0].finish_reason})")
     except ImportError:
         print("[WARN] openai 未安装，使用规则摘要")
     except Exception as e:
