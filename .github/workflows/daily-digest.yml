@@ -58,7 +58,7 @@ jobs:
         env:
           # ── AI 摘要（Google AI Studio 免费 API）──
           GOOGLE_API_KEY:        ${{ secrets.GOOGLE_API_KEY }}
-          LLM_MODEL:             gemini-2.0-flash
+          LLM_MODEL:             gemini-3.1-flash-lite
           # ── 邮件（可选）──
           SMTP_HOST:             ${{ secrets.SMTP_HOST }}
           SMTP_PORT:             ${{ secrets.SMTP_PORT }}
