@@ -88,9 +88,9 @@ def fetch_feeds(config: dict, seen: set, lookback_hours: int) -> list[dict]:
     results.sort(key=lambda x: x["published"], reverse=True)
     return results
 
-# ─── 分类整理（免费版，无需 AI）────────────────────────────
+# ─── AI 摘要（Gemini 免费层）────────────────────────────────
 def ai_summarize(items: list[dict], lang: str = "zh") -> str:
-    """按分类聚合，输出 Markdown 列表，后续可替换为 Claude 摘要"""
+    """调用 Gemini 生成中文 AI 摘要，fallback 到规则摘要"""
     if not items:
         return "今日暂无新内容。"
 
@@ -98,12 +98,55 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
         "research": "🔬 研究前沿",
         "agent":    "🤖 智能体",
         "industry": "📰 行业动态",
-        "product":  "🛠️ 技术产品",
+        "product":  "🛠️ 产品技术",
     }
+
+    # 按分类聚合
     by_cat: dict[str, list] = {}
     for item in items:
         by_cat.setdefault(item["category"], []).append(item)
 
+    # 构建摘要输入
+    lines = []
+    for cat, label in cat_labels.items():
+        cat_items = by_cat.get(cat, [])
+        if not cat_items:
+            continue
+        lines.append(f"【{label}】")
+        for item in cat_items:
+            title = item["title"]
+            source = item["source"]
+            summary = item.get("summary", "")[:200]
+            lines.append(f"- {title}（{source}）")
+            if summary:
+                lines.append(f"  简介：{summary}")
+        lines.append("")
+
+    prompt = f"""你是一位 AI 行业分析师。以下是今天收集的 {len(items)} 条 AI/Agent 领域新闻。
+请用中文生成一段简洁的「AI 日报摘要」（300 字以内），要求：
+1. 按板块（研究前沿/智能体/行业动态/产品技术）各用 1-2 句话总结亮点
+2. 指出最值得关注的 2-3 条新闻，简述原因
+3. 最后用一句话总结今日趋势
+4. 语言精炼、专业，面向技术从业者
+
+原始数据：
+{chr(10).join(lines)}"""
+
+    try:
+        from google import genai
+        client = genai.Client()
+        resp = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
+        return resp.text.strip()
+    except Exception as e:
+        print(f"[WARN] Gemini 摘要失败({e})，使用规则摘要")
+        return _fallback_summary(items, by_cat, cat_labels, lang)
+
+
+def _fallback_summary(items, by_cat, cat_labels, lang) -> str:
+    """规则摘要（Gemini 不可用时的后备）"""
     lines = [f"共收录 **{len(items)}** 条更新\n"]
     for cat, label in cat_labels.items():
         cat_items = by_cat.get(cat, [])
