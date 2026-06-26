@@ -88,9 +88,9 @@ def fetch_feeds(config: dict, seen: set, lookback_hours: int) -> list[dict]:
     results.sort(key=lambda x: x["published"], reverse=True)
     return results
 
-# ─── AI 摘要（Gemini 免费层）────────────────────────────────
+# ─── AI 摘要（通过 VertexAI / Google AI Studio 免费额度）───────
 def ai_summarize(items: list[dict], lang: str = "zh") -> str:
-    """调用 Gemini 生成中文 AI 摘要，fallback 到规则摘要"""
+    """调用 LLM 生成中文 AI 摘要，fallback 到规则摘要"""
     if not items:
         return "今日暂无新内容。"
 
@@ -132,17 +132,30 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
 原始数据：
 {chr(10).join(lines)}"""
 
+    # 尝试通过 OpenAI 兼容 API 调用（VertexAI 代理 / Google AI Studio）
     try:
-        from google import genai
-        client = genai.Client()
-        resp = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
+        import os
+        from openai import OpenAI
+
+        # 优先用 VertexAI 代理，其次直连 Google AI Studio
+        base_url = os.environ.get("VERTEXAI_PROXY_URL", "http://127.0.0.1:18999/v1")
+        api_key = os.environ.get("VERTEXAI_PROXY_KEY", "placeholder")
+        model = os.environ.get("LLM_MODEL", "gemini-3.5-flash")
+
+        client = OpenAI(base_url=base_url, api_key=api_key)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.7,
         )
-        return resp.text.strip()
+        return resp.choices[0].message.content.strip()
+    except ImportError:
+        print("[WARN] openai 未安装，使用规则摘要")
     except Exception as e:
-        print(f"[WARN] Gemini 摘要失败({e})，使用规则摘要")
-        return _fallback_summary(items, by_cat, cat_labels, lang)
+        print(f"[WARN] LLM 摘要失败({e})，使用规则摘要")
+
+    return _fallback_summary(items, by_cat, cat_labels, lang)
 
 
 def _fallback_summary(items, by_cat, cat_labels, lang) -> str:
