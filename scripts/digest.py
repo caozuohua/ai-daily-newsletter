@@ -152,13 +152,21 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
             return _fallback_summary(items, by_cat, cat_labels, lang)
 
         client = OpenAI(base_url=base_url, api_key=api_key)
-        resp = client.chat.completions.create(
+
+        # 构建请求参数（不同后端用不同参数）
+        create_kwargs = dict(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2048,
             temperature=0.7,
-            extra_body={"google": {"thinking_config": {"include_thoughts": False, "thinking_budget": 0}}},
         )
+        # 只有 VertexAI 代理才支持 Gemini thinking 配置
+        if "generativelanguage.googleapis.com" not in base_url:
+            create_kwargs["extra_body"] = {
+                "google": {"thinking_config": {"include_thoughts": False, "thinking_budget": 0}}
+            }
+
+        resp = client.chat.completions.create(**create_kwargs)
         result_text = resp.choices[0].message.content.strip()
         if result_text:
             return result_text
