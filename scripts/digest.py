@@ -263,9 +263,9 @@ def build_html(ai_digest: str, items: list[dict], date_str: str) -> str:
             html_parts.append(f'<ul style="margin:6px 0 6px 0;padding:0">{li}</ul>')
             continue
 
-        # 普通段落：收集连续非空行（直到空行或列表/标题）
+        # 普通段落：收集连续非空行（直到空行、列表项或标题）
         para_lines = []
-        while i < len(lines) and lines[i].strip() and not re.match(r'^(#+\s|[-*]\s+)', lines[i].strip()):
+        while i < len(lines) and lines[i].strip() and not re.match(r'^(#+\s|[-*]\s+|\d+\.\s+)', lines[i].strip()):
             para_lines.append(lines[i].strip())
             i += 1
         if para_lines:
