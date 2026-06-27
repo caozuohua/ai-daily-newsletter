@@ -224,13 +224,48 @@ def build_html(ai_digest: str, items: list[dict], date_str: str) -> str:
         <table width="100%" cellpadding="0" cellspacing="0">{rows}</table>
         """
 
-    # 将 Markdown 链接转为 HTML（简单替换，无需库）
+    # 将 Markdown 转为排版良好的 HTML
     import re
-    ai_html = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', ai_digest)
-    ai_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', ai_html)
-    ai_html = re.sub(r'^## (.+)$', r'<h3 style="color:#667eea;margin:16px 0 6px">\1</h3>', ai_html, flags=re.MULTILINE)
-    ai_html = re.sub(r'^- (.+)$', r'<p style="margin:4px 0 4px 12px">· \1</p>', ai_html, flags=re.MULTILINE)
-    ai_html = ai_html.replace('\n', '')
+    ai_html = ai_digest
+
+    # 先按段落分割（空行分隔）
+    paragraphs = re.split(r'\n\s*\n', ai_html.strip())
+
+    html_parts = []
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+
+        # 处理标题行
+        heading_match = re.match(r'^#+\s+(.+)$', para)
+        if heading_match:
+            text = heading_match.group(1)
+            text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+            text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', text)
+            html_parts.append(f'<h3 style="color:#667eea;margin:16px 0 6px;font-size:15px">{text}</h3>')
+            continue
+
+        # 处理列表项
+        if para.startswith('- '):
+            items = para.split('\n')
+            li = ''
+            for item in items:
+                item = item.strip().lstrip('- ').strip()
+                if not item:
+                    continue
+                item = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', item)
+                item = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', item)
+                li += f'<li style="margin:4px 0 4px 16px;line-height:1.6">{item}</li>'
+            html_parts.append(f'<ul style="margin:4px 0;padding:0">{li}</ul>')
+            continue
+
+        # 普通段落：处理加粗和链接
+        para = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', para)
+        para = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', para)
+        html_parts.append(f'<p style="margin:8px 0;line-height:1.8;font-size:14px;color:#444">{para}</p>')
+
+    ai_html = '\n'.join(html_parts)
 
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
