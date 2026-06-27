@@ -224,49 +224,53 @@ def build_html(ai_digest: str, items: list[dict], date_str: str) -> str:
         <table width="100%" cellpadding="0" cellspacing="0">{rows}</table>
         """
 
-    # 将 Markdown 转为排版良好的 HTML（逐行解析）
+    # 将 Markdown 转为排版良好的 HTML（逐行解析，智能分组）
     import re
 
     lines = ai_digest.strip().split('\n')
     html_parts = []
     i = 0
 
+    def _inline(text):
+        """处理行内 Markdown：加粗和链接"""
+        text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+        text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', text)
+        return text
+
     while i < len(lines):
         line = lines[i]
+        stripped = line.strip()
 
         # 跳过空行
-        if not line.strip():
+        if not stripped:
             i += 1
             continue
 
-        # 标题行
-        heading_match = re.match(r'^#+\s+(.+)$', line)
+        # 标题行 (# 开头)
+        heading_match = re.match(r'^#+\s+(.+)$', stripped)
         if heading_match:
-            text = heading_match.group(1)
-            text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-            text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', text)
-            html_parts.append(f'<h3 style="color:#667eea;margin:16px 0 6px;font-size:15px">{text}</h3>')
+            html_parts.append(f'<h3 style="color:#667eea;margin:16px 0 6px;font-size:15px">{_inline(heading_match.group(1))}</h3>')
             i += 1
             continue
 
-        # 列表项（以 - 或 * 开头，连续多行）
-        if re.match(r'^[-*]\s+', line):
+        # 列表项（以 - 或 * 开头）：连续收集所有相邻的列表行
+        if re.match(r'^[-*]\s+', stripped):
             li = ''
-            while i < len(lines) and re.match(r'^[-*]\s+', lines[i]):
+            while i < len(lines) and re.match(r'^[-*]\s+', lines[i].strip()):
                 item = re.sub(r'^[-*]\s+', '', lines[i].strip())
-                item = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', item)
-                item = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', item)
-                li += f'<li style="margin:5px 0 5px 20px;line-height:1.7;font-size:14px;color:#444">{item}</li>'
+                li += f'<li style="margin:5px 0 5px 20px;line-height:1.7;font-size:14px;color:#444">{_inline(item)}</li>'
                 i += 1
             html_parts.append(f'<ul style="margin:6px 0 6px 0;padding:0">{li}</ul>')
             continue
 
-        # 普通段落（可能包含加粗和链接）
-        text = line.strip()
-        text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-        text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', text)
-        html_parts.append(f'<p style="margin:8px 0;line-height:1.8;font-size:14px;color:#444">{text}</p>')
-        i += 1
+        # 普通段落：收集连续非空行（直到空行或列表/标题）
+        para_lines = []
+        while i < len(lines) and lines[i].strip() and not re.match(r'^(#+\s|[-*]\s+)', lines[i].strip()):
+            para_lines.append(lines[i].strip())
+            i += 1
+        if para_lines:
+            text = ' '.join(para_lines)
+            html_parts.append(f'<p style="margin:8px 0;line-height:1.8;font-size:14px;color:#444">{_inline(text)}</p>')
 
     ai_html = '\n'.join(html_parts)
 
