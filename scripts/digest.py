@@ -253,11 +253,11 @@ def build_html(ai_digest: str, items: list[dict], date_str: str) -> str:
             i += 1
             continue
 
-        # 列表项（以 - 或 * 开头）：连续收集所有相邻的列表行
-        if re.match(r'^[-*]\s+', stripped):
+        # 列表项（以 - * 或 数字. 开头）：连续收集所有相邻的列表行
+        if re.match(r'^(\d+\.[\s]|[-*]\s+)', stripped):
             li = ''
-            while i < len(lines) and re.match(r'^[-*]\s+', lines[i].strip()):
-                item = re.sub(r'^[-*]\s+', '', lines[i].strip())
+            while i < len(lines) and re.match(r'^(\d+\.[\s]|[-*]\s+)', lines[i].strip()):
+                item = re.sub(r'^(\d+\.\s+|[-*]\s+)', '', lines[i].strip())
                 li += f'<li style="margin:5px 0 5px 20px;line-height:1.7;font-size:14px;color:#444">{_inline(item)}</li>'
                 i += 1
             html_parts.append(f'<ul style="margin:6px 0 6px 0;padding:0">{li}</ul>')
