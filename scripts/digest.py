@@ -237,7 +237,7 @@ def build_html(ai_digest: str, items: list[dict], date_str: str) -> str:
         if not para:
             continue
 
-        # 处理标题行
+        # 处理标题行 (# 开头)
         heading_match = re.match(r'^#+\s+(.+)$', para)
         if heading_match:
             text = heading_match.group(1)
@@ -246,18 +246,24 @@ def build_html(ai_digest: str, items: list[dict], date_str: str) -> str:
             html_parts.append(f'<h3 style="color:#667eea;margin:16px 0 6px;font-size:15px">{text}</h3>')
             continue
 
-        # 处理列表项
-        if para.startswith('- '):
-            items = para.split('\n')
+        # 处理列表项（每行以 - 或 * 开头）
+        lines_in_para = para.split('\n')
+        is_list = any(l.strip().startswith(('- ', '* ')) for l in lines_in_para if l.strip())
+
+        if is_list:
             li = ''
-            for item in items:
-                item = item.strip().lstrip('- ').strip()
-                if not item:
+            for line in lines_in_para:
+                line = line.strip()
+                if not line:
                     continue
-                item = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', item)
-                item = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', item)
-                li += f'<li style="margin:4px 0 4px 16px;line-height:1.6">{item}</li>'
-            html_parts.append(f'<ul style="margin:4px 0;padding:0">{li}</ul>')
+                # 去掉列表标记
+                line = re.sub(r'^[-*]\s+', '', line)
+                if not line:
+                    continue
+                line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
+                line = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color:#1a73e8;text-decoration:none">\1</a>', line)
+                li += f'<li style="margin:5px 0 5px 20px;line-height:1.7;font-size:14px;color:#444">{line}</li>'
+            html_parts.append(f'<ul style="margin:6px 0;padding:0">{li}</ul>')
             continue
 
         # 普通段落：处理加粗和链接
