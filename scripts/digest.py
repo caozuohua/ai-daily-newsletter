@@ -9,6 +9,8 @@ import json
 import time
 import smtplib
 import hashlib
+import html
+import re
 import requests
 import feedparser
 import yaml
@@ -123,11 +125,13 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
         lines.append("")
 
     prompt = f"""你是一位 AI 行业分析师。以下是今天收集的 {len(items)} 条 AI/Agent 领域新闻。
-请用中文生成一段简洁的「AI 日报摘要」（300 字以内），要求：
-1. 按板块（研究前沿/智能体/行业动态/产品技术）各用 1-2 句话总结亮点
-2. 指出最值得关注的 2-3 条新闻，简述原因
-3. 最后用一句话总结今日趋势
-4. 语言精炼、专业，面向技术从业者
+请用中文生成一份结构化「AI 日报」，要求：
+1. 只通过本次请求完成全部总结、分类解读和逐条新闻要点；不要设计或暗示为每条新闻单独调用模型，以适配 Google AI Studio 免费额度和 RPM 限制。
+2. 先写「### AI 日报摘要」：总览 120-180 字。
+3. 再写「### 分类解读」：按研究前沿/智能体/行业动态/产品技术，每个有新闻的板块各用 1-2 句话说明重点和影响。
+4. 再写「### 逐条新闻要点」：按分类列出每条新闻，每条包含 Markdown 链接标题、来源，以及一句 30-50 字的“重点：...”，说明这条新闻为什么值得看或对技术从业者的启发。
+5. 最后写「### 今日趋势」：用一句话总结今日趋势。
+6. 语言精炼、专业，避免空泛判断；如果 RSS 简介信息不足，就基于标题给出谨慎解读。
 
 原始数据：
 {chr(10).join(lines)}"""
@@ -145,7 +149,7 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
             base_url = os.environ["VERTEXAI_PROXY_URL"]
             model = os.environ.get("LLM_MODEL", "gemini-3.5-flash")
         elif os.environ.get("GOOGLE_API_KEY"):
-            # 直连 Google AI Studio（免费，无额度限制）
+            # 直连 Google AI Studio（免费额度，有 RPM 限制）
             base_url = "https://generativelanguage.googleapis.com/v1beta"
         else:
             print("[WARN] 未配置 GOOGLE_API_KEY 或 VERTEXAI_PROXY，使用规则摘要")
@@ -157,7 +161,7 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
         create_kwargs = dict(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0.7,
         )
         # 只有 VertexAI 代理才支持 Gemini thinking 配置
@@ -181,7 +185,19 @@ def ai_summarize(items: list[dict], lang: str = "zh") -> str:
 
 def _fallback_summary(items, by_cat, cat_labels, lang) -> str:
     """规则摘要（Gemini 不可用时的后备）"""
-    lines = [f"共收录 **{len(items)}** 条更新\n"]
+    lines = [
+        "### AI 日报摘要\n",
+        f"共收录 **{len(items)}** 条更新。以下为基于 RSS 标题和简介生成的规则摘要；未额外调用 Gemini，适合免费额度或 RPM 受限时兜底。\n",
+        "\n### 分类解读\n",
+    ]
+    for cat, label in cat_labels.items():
+        cat_items = by_cat.get(cat, [])
+        if not cat_items:
+            continue
+        focus = "；".join(item["title"] for item in cat_items[:2])
+        lines.append(f"- **{label}**：{len(cat_items)} 条更新，重点关注 {focus}。")
+
+    lines.append("\n### 逐条新闻要点\n")
     for cat, label in cat_labels.items():
         cat_items = by_cat.get(cat, [])
         if not cat_items:
@@ -190,9 +206,34 @@ def _fallback_summary(items, by_cat, cat_labels, lang) -> str:
         for item in cat_items:
             lines.append(
                 f"- [{item['title']}]({item['link']})  \n"
-                f"  *{item['source']} · {item['published']}*"
+                f"  *{item['source']} · {item['published']}*  \n"
+                f"  重点：{_fallback_takeaway(item)}"
             )
+    lines.append("\n### 今日趋势\n")
+    lines.append("今日更新显示，AI 领域仍在围绕模型能力、智能体落地、产业竞争和工程成本持续演进。")
     return "\n".join(lines)
+
+
+def _fallback_takeaway(item: dict) -> str:
+    """从 RSS 简介生成一条保守的规则重点。"""
+    summary = _plain_text(item.get("summary", ""))
+    if summary:
+        return _clip_text(summary, 120)
+    return f"这条新闻聚焦 {item['title']}，可作为跟踪该方向后续进展的入口。"
+
+
+def _plain_text(value: str) -> str:
+    text = html.unescape(value or "")
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _clip_text(value: str, limit: int) -> str:
+    value = value.strip()
+    if len(value) <= limit:
+        return value
+    return value[: limit - 1].rstrip() + "…"
 
 # ─── 生成 HTML 邮件 ───────────────────────────────────────
 def build_html(ai_digest: str, items: list[dict], date_str: str) -> str:
